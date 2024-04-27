@@ -1,0 +1,74 @@
+---
+title: "1.Tidying Raw Biomass Data"
+author: "1053071"
+date: "2024-04-27"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+#Load required packages
+library(tidyverse) 
+```
+
+```{r}
+# Set working directory to get data file from
+setwd("C:\\Users\\boysn\\Desktop\\4th Year\\MASTERS\\2023 Data")
+```
+
+```{r}
+rawbiomassdata <- read.csv("MASTER_Biomass16-23.csv") #read in the data file to R
+```
+
+
+```{r}
+tidybiomass <- subset(rawbiomassdata, select = c(year, harvest, block, treatment, group, biomass_g, biog))
+
+# create a new column Year and copy values from year into it (means we can rename Year column to represent Year 1 Year 2 etc while still keeping 2016 2017 information for future use)
+tidybiomass$Year <- tidybiomass$year
+
+tidybiomass$biomass_g <- as.numeric(tidybiomass$biomass_g) #to numeric format
+
+# convert the "treatment" column to a factor with specific levels
+tidybiomass$treatment <- factor(tidybiomass$treatment, levels = c("Drought", "Procedural", "Ambient", "Irrigated"))
+
+# Making block a factor
+tidybiomass$block <- factor(tidybiomass$block)
+
+# remove missing values (NAs) from the dataset
+tidybiomass <- tidybiomass %>% drop_na()
+```
+
+
+```{r}
+#makes "Year" column data stored as character 
+tidybiomass$Year <- as.character(tidybiomass$Year)
+
+# Rename the year values so that "2016" becomes "Year 1" so that we can label how we want in the future
+tidybiomass$Year <- sub("2016", "Year 1", tidybiomass$Year)
+tidybiomass$Year <- sub("2017", "Year 2", tidybiomass$Year)
+tidybiomass$Year <- sub("2018", "Year 3", tidybiomass$Year)
+tidybiomass$Year <- sub("2019", "Year 4", tidybiomass$Year)
+tidybiomass$Year <- sub("2020", "Year 5", tidybiomass$Year)
+tidybiomass$Year <- sub("2021", "Year 6", tidybiomass$Year)
+tidybiomass$Year <- sub("2022", "Year 7", tidybiomass$Year)
+tidybiomass$Year <- sub("2023", "Year 8", tidybiomass$Year)
+```
+
+```{r}
+# Specify the file path and file name where you want to save the CSV file
+file_path <- "C:\\Users\\boysn\\Desktop\\4th Year\\MASTERS\\2023 Data\\TidiedMASTER2016-2023.csv"
+
+# Save the dataset as a CSV file
+write.csv(tidybiomass, file = file_path, row.names = FALSE)
+
+# Confirm that the file has been saved
+if (file.exists(file_path)) {
+  cat("CSV file saved successfully.\n")
+} else {
+  cat("Error: CSV file not saved.\n")
+}
+```
