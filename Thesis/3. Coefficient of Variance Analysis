@@ -1,0 +1,172 @@
+```{r, include=FALSE}
+# Load required packages
+library(stats)
+library(tidyverse) # for data manipulation
+library(lme4)
+library(lmerTest)
+library(dplyr)
+library(viridis)
+library(ggplot2)
+library(stringr)
+```
+
+```{r, include=FALSE}
+# Set working directory to get data file from
+setwd("   set as own directory  ")
+tidybiomass <- read.csv("TidiedMASTER2016-2023.csv")
+view(tidybiomass)
+```
+
+#### Biomass Mean by Plot, Years 2 - 8, colour-coded by Treatment 
+
+```{r, message = FALSE, warning = FALSE, echo = FALSE}
+# Filter the data for the desired groups
+filtered_biomass <- tidybiomass %>%
+  filter(group %in% c("Forbs", "Graminoids", "Legumes", "All"),
+         year >= 2017 & year <= 2023)
+
+# Calculate the biomass mean for each plot across years
+biomass_means <- filtered_biomass %>%
+  group_by(block, treatment, year) %>%
+  summarise(mean_biomass = mean(biomass_g))
+
+# Create a line plot with dots joined by plot
+plot_tidybiomass_MEAN <- ggplot(biomass_means, aes(x = factor(year), y = mean_biomass, color = treatment, group = interaction(block, treatment))) +
+  geom_point(size = 2) +
+  geom_line(aes(group = interaction(block, treatment)), size = 1) +
+  labs(x = "Year", y = "Biomass Mean (g)") +
+  theme_minimal() +
+  theme(legend.position = "right") +
+  ggtitle("Biomass Mean Across Years by Plot and Treatment")
+
+# Display the line plot
+print(plot_tidybiomass_MEAN)
+```
+
+
+#### Temporal Mean by Treatment, Years 2 - 8
+
+```{r}
+# Calculate the temporal mean biomass and standard error for each treatment
+temporal_mean_biomass <- filtered_biomass %>%
+  group_by(treatment) %>%
+  summarise(temporal_mean_biomass = mean(biomass_g),
+            se = sd(biomass_g) / sqrt(n()))
+print(temporal_mean_biomass)
+
+# Temporal mean biomass with error bars
+temporal_mean_plot <- ggplot(temporal_mean_biomass, aes(x = treatment, y = temporal_mean_biomass)) +
+  geom_point(size = 5, color = "darkgreen") +  # Setting size and color directly
+  geom_errorbar(aes(ymin = temporal_mean_biomass - se, ymax = temporal_mean_biomass + se), width = 0.2, color = "black") +   
+  labs(x = "Treatment", y = "Temporal Mean Biomass (g/m-2)") +
+  theme_minimal() +
+  theme(legend.position = "none",
+        axis.title.x = element_text(size = 14),
+        axis.title.y = element_text(size = 14),
+        axis.text.x = element_text(size = 14),
+        axis.text.y = element_text(size = 14),
+        plot.title = element_text(size = 16)) + 
+  ggtitle("Temporal Mean Biomass by Treatment")
+
+
+ggsave("temporal_mean_biomass_plot.png", plot = temporal_mean_plot, width = 8, height = 6, units = "in", dpi = 300, bg = "white")
+print(temporal_mean_plot)
+```
+
+
+
+#### Standard Deviation by Plot, Years 2 - 8, colour-coded by Treatment
+
+```{r, message = FALSE, echo = FALSE}
+# Calculate the standard deviation of biomass for each plot and year
+biomass_sds <- filtered_biomass%>%
+  group_by(block, treatment, year) %>%
+  summarise(sd_biomass = sd(biomass_g, na.rm = TRUE))
+
+# Create a line plot with dots for the standard deviations
+plot_tidybiomass_SD <- ggplot(biomass_sds, aes(x = factor(year), y = sd_biomass, color = treatment, group = interaction(block, treatment))) +
+  geom_point(size = 2) +
+  geom_line(aes(group = interaction(block, treatment)), size = 1) +
+  labs(x = "Year", y = "Biomass Standard Deviation (SD)") +
+  theme_minimal() +
+  ggtitle("Biomass Standard Deviation Per Plot, Per Year")
+
+print(plot_tidybiomass_SD)
+```
+
+#### Temporal Standard Deviation by Treatment, Years 2 - 8
+
+```{r, message = FALSE}
+# Calculate the temporal standard deviation and standard error for each treatment
+temporal_sd <- filtered_biomass %>%
+  group_by(treatment) %>%
+  summarise(temporal_sd = sd(biomass_g),
+            se_sd = temporal_sd / sqrt(n()))
+print(temporal_sd)
+
+# Temp standard deviation with error bars
+temporal_sd_plot <- ggplot(temporal_sd, aes(x = treatment, y = temporal_sd)) +
+  geom_point(size = 5, color = "purple4") +  
+  geom_errorbar(aes(ymin = temporal_sd - se_sd, ymax = temporal_sd + se_sd), width = 0.2, color = "black") + 
+  labs(x = "Treatment", y = "Temporal Standard Deviation (g/m-2)") +
+  theme_minimal() +
+  theme(legend.position = "none",
+        axis.title.x = element_text(size = 14),
+        axis.title.y = element_text(size = 14),
+        axis.text.x = element_text(size = 14),
+        axis.text.y = element_text(size = 14),
+        plot.title = element_text(size = 16)) + 
+  ggtitle("Temporal Standard Deviation by Treatment")
+
+ggsave("temporal_sd_plot.png", plot = temporal_sd_plot, width = 8, height = 6, units = "in", dpi = 300, bg = "white")
+print(temporal_sd_plot)
+```
+
+
+#### Calculate the Coefficient of Variation (CV) for each plot each year
+
+```{r, message = FALSE, echo = FALSE}
+# Calculate the coefficient of variation (CV) for each plot and year
+biomass_cvs_tidy <- filtered_biomass %>%
+  group_by(block, treatment, year) %>%
+  summarise(cv_biomass = sd(biomass_g, na.rm = TRUE) / mean(biomass_g, na.rm = TRUE) * 100)
+
+# Create a line plot with dots for the CV values, color-coded by treatment
+plot_tidybiomass_CV <- ggplot(biomass_cvs_tidy, aes(x = factor(year), y = cv_biomass, color = treatment, group = interaction(block, treatment))) +
+  geom_point(size = 2) +
+  geom_line(aes(group = interaction(block, treatment)), size = 1) +
+  labs(x = "Year", y = "Coefficient of Variation (CV)") +
+  theme_minimal() +
+  ggtitle("Coefficient of Variation (CV) Per Plot, Per Year")
+
+# Display the line plot for CV values
+print(plot_tidybiomass_CV)
+```
+
+#### Calculate the CV of each plot from Years 2 to 8 
+
+```{r, message = FALSE, warning = FALSE, echo = FALSE}
+# Calculate the coefficient of variation (CV) for each plot across years 2 to 8
+biomass_cvs_total_tidy <- filtered_biomass %>%
+  group_by(block, treatment) %>%
+  summarise(cv_biomass = sd(biomass_g, na.rm = TRUE) / mean(biomass_g, na.rm = TRUE) * 100)
+
+# View the dataset of 20 CV values
+tibble(biomass_cvs_total_tidy)
+```
+
+#### LmerTest on Coefficient of Variance per Plot,  Years 2 - 8
+
+```{r, message = FALSE}
+# Run the linear mixed-effects model
+lmer_RainDrop_CV <- lmerTest::lmer(cv_biomass ~ treatment + (1|block),  data = biomass_cvs_total_tidy)
+
+# Print the summary of the model
+summary(lmer_RainDrop_CV)
+
+# Print the ANOVA table
+anova(lmer_RainDrop_CV, type = "I")
+```
+
+Drought is shown to have a statistically significant effect on the Coefficient of Variance of each plot. Drought seems to have lowest temporal mean. 
+
