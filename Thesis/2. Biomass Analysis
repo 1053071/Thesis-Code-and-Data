@@ -1,0 +1,1028 @@
+```{r, message = FALSE, warning = FALSE, include = FALSE}
+# Load required packages
+library(stats)
+library(tidyverse)
+library(ggplot2)
+library(lme4)
+library(lmerTest)
+library(viridis)
+library(openxlsx) 
+library(RColorBrewer)
+```
+
+```{r, include=FALSE}
+# Set working directory to get data file from
+setwd(" set as own directory  ")
+
+tidybiomass<- read.csv("TidiedMASTER2016-2023.csv")
+```
+
+#### Step 1: Plot Mean Biomass across Years per Treatment
+
+```{r, message = FALSE}
+# Filter data for specific treatments (Graminoids, Forbs, Legumes, All)
+filtered_data <- tidybiomass %>%
+  filter(group %in% c("Graminoids", "Forbs", "Legumes", "All"))
+
+# Check that worked
+view(filtered_data)
+```
+
+```{r, message = FALSE}
+# Calculate the mean biomass and standard error for each combination of treatment and year
+mean_biomass_data <- filtered_data %>%
+  group_by(Year, treatment) %>%
+  summarize(mean_biomass = mean(biomass_g),
+            std_error = sd(biomass_g) / sqrt(n()))
+
+# Create a plot for mean biomass per year per treatment with error bars
+MeanBiomassPlot <- ggplot(mean_biomass_data, aes(x = Year, y = mean_biomass, fill = treatment)) +
+  geom_bar(stat = "identity", position = position_dodge(width = 0.8)) +
+  geom_errorbar(aes(ymin = mean_biomass - std_error, ymax = mean_biomass + std_error),
+                width = 0.2, position = position_dodge(width = 0.8)) +
+  labs(
+    title = "Mean Biomass by Treatment by Year",
+    x = "Year",
+    y = "Mean Biomass (g)",
+    fill = "Treatment"
+  ) +
+  scale_fill_viridis(discrete = TRUE) +  # Use a colour palette
+  theme_minimal() +
+  theme(legend.position = "top")
+
+# Display the plot
+print(MeanBiomassPlot)
+```
+
+
+#### Plot of total yearly mean biomass, grams per metre square, per year with standard error
+
+```{r}
+# Calculate mean biomass and standard error for each treatment-year combination, considering only end-harvest data
+mean_biomass_year <- filtered_data %>%
+  filter(Year != "Year 1") %>%  # Exclude Year 1 data
+  group_by(Year, treatment) %>%
+  summarize(mean_biomass = mean(biomass_g),
+            se = sd(biomass_g) / sqrt(n()))
+
+# Plot mean biomass with error bars, facet-wrapped by year
+BiomassPlot_year <- ggplot(mean_biomass_year, aes(x = treatment, y = mean_biomass, color = treatment)) +
+  geom_point(position = position_dodge(width = 0.5), size = 3) +
+  geom_errorbar(aes(ymin = mean_biomass - se, ymax = mean_biomass + se),
+                position = position_dodge(width = 0.5), width = 0.5) +
+  facet_wrap(~ Year, scales = "free_y", ncol = 2) + 
+  labs(
+    x = "Treatment",
+    y = "Mean Biomass (g/m-2)"
+  ) +
+  scale_color_brewer(palette = "Set1") + 
+  theme_minimal() +
+  theme(
+    legend.position = "none",
+    axis.title.x = element_text(size = 14),
+    axis.title.y = element_text(size = 14),
+    axis.text.x = element_text(size = 14),
+    axis.text.y = element_text(size = 14),
+    strip.text = element_text(size = 14, face = "bold"),   
+    strip.background = element_rect(fill = "lightgrey")  
+  ) +
+  coord_cartesian(ylim = c(0, NA)) 
+
+
+ggsave("temporal_mean_biomass_plot_year.png", plot = BiomassPlot_year, width = 10, height = 12, units = "in", dpi = 300, bg = "white")
+
+print(BiomassPlot_year)
+```
+
+#### Plot of Mid biomass, grams per metre square, with standard error
+
+```{r}
+# Calculate mean biomass and standard error for each treatment-year combination, considering only mid-harvest data
+mean_biomass_Mid <- filtered_data %>%
+  filter(harvest == "Mid" & Year != "Year 1") %>%  # Exclude Year 1 data
+  group_by(Year, treatment) %>%
+  summarize(mean_biomass = mean(biomass_g),
+            se = sd(biomass_g) / sqrt(n()))
+
+# Plot mean biomass with error bars, facet-wrapped by year
+BiomassPlot_Mid <- ggplot(mean_biomass_Mid, aes(x = treatment, y = mean_biomass, color = treatment)) +
+  geom_point(position = position_dodge(width = 0.5), size = 3) +
+  geom_errorbar(aes(ymin = mean_biomass - se, ymax = mean_biomass + se),
+                position = position_dodge(width = 0.5), width = 0.5) +
+  facet_wrap(~ Year, scales = "free_y", ncol = 2) + 
+  labs(
+    x = "Treatment",
+    y = "Mean Biomass (g/m-2)"
+  ) +
+  scale_color_brewer(palette = "Set1") +  
+  theme_minimal() +
+  theme(
+    legend.position = "none",
+    axis.title.x = element_text(size = 14),
+    axis.title.y = element_text(size = 14),
+    axis.text.x = element_text(size = 14),
+    axis.text.y = element_text(size = 14),
+    strip.text = element_text(size = 14, face = "bold"),  
+    strip.background = element_rect(fill = "lightgrey") 
+  ) +
+  coord_cartesian(ylim = c(0, NA)) 
+
+
+ggsave("temporal_mean_biomass_plot_Mid.png", plot = BiomassPlot_Mid, width = 10, height = 12, units = "in", dpi = 300, bg = "white")
+
+print(BiomassPlot_Mid)
+```
+
+
+#### Plot of End biomass, grams per metre square, with standard error
+
+```{r}
+
+# Calculate mean biomass and standard error for each treatment-year combination, considering only end-harvest data
+mean_biomass_End <- filtered_data %>%
+  filter(harvest == "End" & Year != "Year 1") %>%  # Exclude Year 1 data
+  group_by(Year, treatment) %>%
+  summarize(mean_biomass = mean(biomass_g),
+            se = sd(biomass_g) / sqrt(n()))
+
+# Plot mean biomass with error bars, facet-wrapped by year
+BiomassPlot_End <- ggplot(mean_biomass_End, aes(x = treatment, y = mean_biomass, color = treatment)) +
+  geom_point(position = position_dodge(width = 0.5), size = 3) +
+  geom_errorbar(aes(ymin = mean_biomass - se, ymax = mean_biomass + se),
+                position = position_dodge(width = 0.5), width = 0.5) +
+  facet_wrap(~ Year, scales = "free_y", ncol = 2) + 
+  labs(
+    x = "Treatment",
+    y = "Mean Biomass (g/m-2)"
+  ) +
+  scale_color_brewer(palette = "Set1") +  
+  theme_minimal() +
+  theme(
+    legend.position = "none",
+    axis.title.x = element_text(size = 14),
+    axis.title.y = element_text(size = 14),
+    axis.text.x = element_text(size = 14),
+    axis.text.y = element_text(size = 14),
+    strip.text = element_text(size = 14, face = "bold"),  
+    strip.background = element_rect(fill = "lightgrey")  
+  ) +
+  coord_cartesian(ylim = c(0, NA))  
+
+ggsave("temporal_mean_biomass_plot_End.png", plot = BiomassPlot_End, width = 10, height = 12, units = "in", dpi = 300, bg = "white")
+
+print(BiomassPlot_End)
+```
+
+#### Step 2: Check assumptions of normality before proceeding with ANOVA
+
+```{r}
+# Fit a linear model
+biomass_model <- lm(biomass_g ~ treatment, data = filtered_data)
+
+# Get the residuals from the model
+biomass_residuals <- residuals(biomass_model)
+
+qqnorm(biomass_residuals)
+qqline(biomass_residuals, col = 2)
+```
+
+Log transform: 
+```{r}
+# Apply a log transformation to the response variable
+filtered_data$biomass_g_log <- log(filtered_data$biomass_g)
+
+# Filter out rows with non-finite values in the log-transformed response variable
+log_filtered_data <- filtered_data[is.finite(filtered_data$biomass_g_log), ]
+view(log_filtered_data)
+```
+
+Check assumptions:
+```{r, message = FALSE}
+# Fit a linear mixed-effects model on the log-transformed data
+mixed_model <- lmer(biomass_g_log ~ treatment + (1|block), data = log_filtered_data)
+
+# Get the residuals from the model
+biomass_residuals <- residuals(mixed_model)
+
+# Create a QQ plot using qqnorm
+qqnorm(biomass_residuals)
+qqline(biomass_residuals, col = 2)
+```
+
+#### Step 3: Fit models for each Year
+
+Year 1 : 
+
+Subset to create the dataset of the biomass per plot 
+
+```{r, message = FALSE}
+#Subset the data for Year 1
+Year1_data <- subset(log_filtered_data, Year == "Year 1")
+
+#Sum biomass for each plot within treatments
+summed_data_1 <- Year1_data %>%
+  group_by(block, treatment) %>%
+  summarize(total_biomass = sum(biomass_g_log))
+
+#Create a data frame for the summed data
+summed_table_1 <- data.frame(
+  Block = summed_data_1$block,
+  Treatment = summed_data_1$treatment,
+  Total_Biomass_Log = summed_data_1$total_biomass
+)
+#Print the table
+print(summed_table_1)
+```
+
+Run the mixed-effects model, with lmerTest and sums of squares 1, and view the summary, then run anova
+
+```{r, message = FALSE}
+# Fit a linear mixed-effects model
+mixed_model_Year1 <- lmerTest::lmer(Total_Biomass_Log ~ Treatment + (1 | Block), data = summed_table_1)
+
+# Display the summary of the model
+summary(mixed_model_Year1)
+
+anova(mixed_model_Year1, type = "I")
+```
+
+
+Year 2:
+
+```{r, message = FALSE}
+# Subset the data for Year 2
+Year2_data <- subset(log_filtered_data, Year == "Year 2")
+
+# Sum biomass for each plot within treatments for Year 2
+summed_data_2 <- Year2_data %>%
+  group_by(block, treatment) %>%
+  summarize(total_biomass = sum(biomass_g_log))
+
+# Create a data frame for Year 2
+summed_table_2 <- data.frame(
+  Block = summed_data_2$block,
+  Treatment = summed_data_2$treatment,
+  Total_Biomass_Log = summed_data_2$total_biomass
+)
+```
+
+Run the mixed-effects model and view the summary for Year 2
+
+```{r, message = FALSE}
+# Fit a linear mixed-effects model
+mixed_model_Year2 <- lmerTest::lmer(Total_Biomass_Log ~ Treatment + (1 | Block), data = summed_table_2)
+
+# Display the summary of the model
+summary(mixed_model_Year2)
+
+anova(mixed_model_Year2, type = "I")
+```
+
+
+Year 3:
+
+```{r, message = FALSE}
+# Subset the data for Year 3
+Year3_data <- subset(log_filtered_data, Year == "Year 3")
+
+# Sum biomass for each plot within treatments for Year 3
+summed_data_3 <- Year3_data %>%
+  group_by(block, treatment) %>%
+  summarize(total_biomass = sum(biomass_g_log))
+
+# Create a data frame for the summed data for Year 3
+summed_table_3 <- data.frame(
+  Block = summed_data_3$block,
+  Treatment = summed_data_3$treatment,
+  Total_Biomass_Log = summed_data_3$total_biomass
+)
+```
+
+```{r, message = FALSE}
+# Fit a linear mixed-effects model
+mixed_model_Year3 <- lmerTest::lmer(Total_Biomass_Log ~ Treatment + (1 | Block), data = summed_table_3)
+
+# Display the summary of the model
+summary(mixed_model_Year3)
+
+anova(mixed_model_Year3, type = "I")
+```
+
+
+Year 4:
+
+```{r, message = FALSE}
+# Subset the data for Year 4
+Year4_data <- subset(log_filtered_data, Year == "Year 4")
+
+# Sum biomass for each plot within treatments for Year 4
+summed_data_4 <- Year4_data %>%
+  group_by(block, treatment) %>%
+  summarize(total_biomass = sum(biomass_g_log))
+
+# Create a data frame for the summed data for Year 4
+summed_table_4 <- data.frame(
+  Block = summed_data_4$block,
+  Treatment = summed_data_4$treatment,
+  Total_Biomass_Log = summed_data_4$total_biomass
+)
+```
+
+```{r, message = FALSE}
+# Fit a linear mixed-effects model
+mixed_model_Year4 <- lmerTest::lmer(Total_Biomass_Log ~ Treatment + (1 | Block), data = summed_table_4)
+
+# Display the summary of the model
+summary(mixed_model_Year4)
+
+anova(mixed_model_Year4, type = "I")
+```
+
+Year 5:
+
+```{r, message = FALSE}
+# Subset the data for Year 5
+Year5_data <- subset(log_filtered_data, Year == "Year 5")
+
+# Sum biomass for each plot within treatments for Year 5
+summed_data_5 <- Year5_data %>%
+  group_by(block, treatment) %>%
+  summarize(total_biomass = sum(biomass_g_log))
+
+# Create a data frame for the summed data for Year 5
+summed_table_5 <- data.frame(
+  Block = summed_data_5$block,
+  Treatment = summed_data_5$treatment,
+  Total_Biomass_Log = summed_data_5$total_biomass
+)
+```
+
+```{r, message = FALSE}
+# Fit a linear mixed-effects model
+mixed_model_Year5 <- lmerTest::lmer(Total_Biomass_Log ~ Treatment + (1 | Block), data = summed_table_5)
+
+# Display the summary of the model
+summary(mixed_model_Year5)
+
+anova(mixed_model_Year5, type = "I")
+```
+
+Year 6:
+
+```{r, message = FALSE}
+# Subset the data for Year 6
+Year6_data <- subset(log_filtered_data, Year == "Year 6")
+
+# Sum biomass for each plot within treatments for Year 6
+summed_data_6 <- Year6_data %>%
+  group_by(block, treatment) %>%
+  summarize(total_biomass = sum(biomass_g_log))
+
+# Create a data frame for the summed data for Year 6
+summed_table_6 <- data.frame(
+  Block = summed_data_6$block,
+  Treatment = summed_data_6$treatment,
+  Total_Biomass_Log = summed_data_6$total_biomass
+)
+```
+
+```{r, message = FALSE}
+# Fit a linear mixed-effects model
+mixed_model_Year6 <- lmerTest::lmer(Total_Biomass_Log ~ Treatment + (1 | Block), data = summed_table_6)
+
+# Display the summary of the model
+summary(mixed_model_Year6)
+
+anova(mixed_model_Year6, type = "I")
+```
+
+Year 7:
+
+```{r, message = FALSE}
+# Subset the data for Year 7
+Year7_data <- subset(log_filtered_data, Year == "Year 7")
+
+# Sum biomass for each plot within treatments for Year 7
+summed_data_7 <- Year7_data %>%
+  group_by(block, treatment) %>%
+  summarize(total_biomass = sum(biomass_g_log))
+
+# Create a data frame for the summed data for Year 7
+summed_table_7 <- data.frame(
+  Block = summed_data_7$block,
+  Treatment = summed_data_7$treatment,
+  Total_Biomass_Log = summed_data_7$total_biomass
+)
+```
+
+```{r, message = FALSE}
+# Fit a linear mixed-effects model
+mixed_model_Year7 <- lmerTest::lmer(Total_Biomass_Log ~ Treatment + (1 | Block), data = summed_table_7)
+
+# Display the summary of the model
+summary(mixed_model_Year7)
+
+anova(mixed_model_Year7, type = "I")
+```
+
+Year 8:
+
+```{r, message = FALSE}
+# Subset the data for Year 8
+Year8_data <- subset(log_filtered_data, Year == "Year 8")
+
+# Sum biomass for each plot within treatments for Year 8
+summed_data_8 <- Year8_data %>%
+  group_by(block, treatment) %>%
+  summarize(total_biomass = sum(biomass_g_log))
+
+# Create a data frame for the summed data for Year 8
+summed_table_8 <- data.frame(
+  Block = summed_data_8$block,
+  Treatment = summed_data_8$treatment,
+  Total_Biomass_Log = summed_data_8$total_biomass
+)
+```
+
+```{r, message = FALSE}
+# Fit a linear mixed-effects model
+mixed_model_Year8 <- lmerTest::lmer(Total_Biomass_Log ~ Treatment + (1 | Block), data = summed_table_8)
+
+# Display the summary of the model
+summary(mixed_model_Year8)
+
+anova(mixed_model_Year8, type = "I")
+```
+
+
+#### Step 4: Fit models for each Harvest
+
+Year 1 - Mid 
+
+```{r, message = FALSE}
+# Subset the data for Year 1 and "Mid" harvest
+Year1_Mid_data <- subset(log_filtered_data, Year == "Year 1" & harvest == "Mid")
+
+# Sum biomass for each plot within treatments for Year 1 and "Mid" harvest
+summed_data_1_Mid <- Year1_Mid_data %>%
+  group_by(block, treatment) %>%
+  summarize(total_biomass = sum(biomass_g_log))
+
+# Create a data frame for the summed data for Year 1 and "Mid" harvest
+summed_table_1_Mid <- data.frame(
+  Block = summed_data_1_Mid$block,
+  Treatment = summed_data_1_Mid$treatment,
+  Total_Biomass_Log = summed_data_1_Mid$total_biomass
+)
+```
+
+```{r, message = FALSE}
+
+# Fit a linear mixed-effects model
+mixed_model_Year1_Mid <- lmerTest::lmer(Total_Biomass_Log ~ Treatment + (1 | Block), data = summed_table_1_Mid)
+
+# Display the summary of the model
+summary(mixed_model_Year1_Mid)
+
+anova(mixed_model_Year1_Mid, type = "I")
+```
+
+Year 1 - End
+
+```{r, message = FALSE}
+# Subset the data for Year 1 and "End" harvest
+Year1_End_data <- subset(log_filtered_data, Year == "Year 1" & harvest == "End")
+
+# Sum biomass for each plot within treatments for Year 1 and "End" harvest
+summed_data_1_End <- Year1_End_data %>%
+  group_by(block, treatment) %>%
+  summarize(total_biomass = sum(biomass_g_log))
+
+# Create a data frame for the summed data for Year 1 and "End" harvest
+summed_table_1_End <- data.frame(
+  Block = summed_data_1_End$block,
+  Treatment = summed_data_1_End$treatment,
+  Total_Biomass_Log = summed_data_1_End$total_biomass
+)
+```
+
+```{r, message = FALSE}
+# Fit a linear mixed-effects model
+mixed_model_Year1_End <- lmerTest::lmer(Total_Biomass_Log ~ Treatment + (1 | Block), data = summed_table_1_End)
+
+# Display the summary of the model
+summary(mixed_model_Year1_End)
+
+anova(mixed_model_Year1_End, type = "I")
+```
+
+
+Year 2 - Mid
+
+```{r, message = FALSE}
+# Subset the data for Year 2 and "Mid" harvest
+Year2_Mid_data <- subset(log_filtered_data, Year == "Year 2" & harvest == "Mid")
+
+# Sum biomass for each plot within treatments for Year 2 and "Mid" harvest
+summed_data_2_Mid <- Year2_Mid_data %>%
+  group_by(block, treatment) %>%
+  summarize(total_biomass = sum(biomass_g_log))
+
+# Create a data frame for the summed data for Year 2 and "Mid" harvest
+summed_table_2_Mid <- data.frame(
+  Block = summed_data_2_Mid$block,
+  Treatment = summed_data_2_Mid$treatment,
+  Total_Biomass_Log = summed_data_2_Mid$total_biomass
+)
+```
+
+```{r, message = FALSE}
+# Fit a linear mixed-effects model
+mixed_model_Year2_Mid <- lmerTest::lmer(Total_Biomass_Log ~ Treatment + (1 | Block), data = summed_table_2_Mid)
+
+# Display the summary of the model
+summary(mixed_model_Year2_Mid)
+
+anova(mixed_model_Year2_Mid, type = "I")
+```
+
+Year 2 - End
+
+```{r, message = FALSE}
+# Subset the data for Year 2 and "End" harvest
+Year2_End_data <- subset(log_filtered_data, Year == "Year 2" & harvest == "End")
+
+# Sum biomass for each plot within treatments for Year 2 and "End" harvest
+summed_data_2_End <- Year2_End_data %>%
+  group_by(block, treatment) %>%
+  summarize(total_biomass = sum(biomass_g_log))
+
+# Create a data frame for the summed data for Year 2 and "End" harvest
+summed_table_2_End <- data.frame(
+  Block = summed_data_2_End$block,
+  Treatment = summed_data_2_End$treatment,
+  Total_Biomass_Log = summed_data_2_End$total_biomass
+)
+```
+
+```{r, message = FALSE}
+# Fit a linear mixed-effects model
+mixed_model_Year2_End<- lmerTest::lmer(Total_Biomass_Log ~ Treatment + (1 | Block), data = summed_table_2_End)
+
+# Display the summary of the model
+summary(mixed_model_Year2_End)
+
+anova(mixed_model_Year2_End, type = "I")
+```
+
+
+Year 3 - Mid
+
+```{r, message = FALSE}
+# Subset the data for Year 3 and "Mid" harvest
+Year3_Mid_data <- subset(log_filtered_data, Year == "Year 3" & harvest == "Mid")
+
+# Sum biomass for each plot within treatments for Year 3 and "Mid" harvest
+summed_data_3_Mid <- Year3_Mid_data %>%
+  group_by(block, treatment) %>%
+  summarize(total_biomass = sum(biomass_g_log))
+
+# Create a data frame for the summed data for Year 3 and "Mid" harvest
+summed_table_3_Mid <- data.frame(
+  Block = summed_data_3_Mid$block,
+  Treatment = summed_data_3_Mid$treatment,
+  Total_Biomass_Log = summed_data_3_Mid$total_biomass
+)
+```
+
+```{r, message = FALSE}
+# Fit a linear mixed-effects model
+mixed_model_Year3_Mid <- lmerTest::lmer(Total_Biomass_Log ~ Treatment + (1 | Block), data = summed_table_3_Mid)
+
+# Display the summary of the model
+summary(mixed_model_Year3_Mid)
+
+anova(mixed_model_Year3_Mid, type = "I")
+```
+
+Year 3 - End
+
+```{r, message = FALSE}
+# Subset the data for Year 3 and "End" harvest
+Year3_End_data <- subset(log_filtered_data, Year == "Year 3" & harvest == "End")
+
+# Sum biomass for each plot within treatments for Year 3 and "End" harvest
+summed_data_3_End <- Year3_End_data %>%
+  group_by(block, treatment) %>%
+  summarize(total_biomass = sum(biomass_g_log))
+
+# Create a data frame for the summed data for Year 3 and "End" harvest
+summed_table_3_End <- data.frame(
+  Block = summed_data_3_End$block,
+  Treatment = summed_data_3_End$treatment,
+  Total_Biomass_Log = summed_data_3_End$total_biomass
+)
+```
+
+```{r, message = FALSE}
+# Fit a linear mixed-effects model
+mixed_model_Year3_End <- lmerTest::lmer(Total_Biomass_Log ~ Treatment + (1 | Block), data = summed_table_3_End)
+
+# Display the summary of the model
+summary(mixed_model_Year3_End)
+
+anova(mixed_model_Year3_End, type = "I")
+```
+
+
+Year 4 - Mid
+
+```{r, message = FALSE}
+# Subset the data for Year 4 and "Mid" harvest
+Year4_Mid_data <- subset(log_filtered_data, Year == "Year 4" & harvest == "Mid")
+
+# Sum biomass for each plot within treatments for Year 4 and "Mid" harvest
+summed_data_4_Mid <- Year4_Mid_data %>%
+  group_by(block, treatment) %>%
+  summarize(total_biomass = sum(biomass_g_log))
+
+# Create a data frame for the summed data for Year 4 and "Mid" harvest
+summed_table_4_Mid <- data.frame(
+  Block = summed_data_4_Mid$block,
+  Treatment = summed_data_4_Mid$treatment,
+  Total_Biomass_Log = summed_data_4_Mid$total_biomass
+)
+```
+
+```{r, message = FALSE}
+# Fit a linear mixed-effects model
+mixed_model_Year4_Mid <- lmerTest::lmer(Total_Biomass_Log ~ Treatment + (1 | Block), data = summed_table_4_Mid)
+
+# Display the summary of the model
+summary(mixed_model_Year4_Mid)
+
+anova(mixed_model_Year4_Mid, type = "I")
+```
+
+Year 4 - End
+
+```{r, message = FALSE}
+# Subset the data for Year 4 and "End" harvest
+Year4_End_data <- subset(log_filtered_data, Year == "Year 4" & harvest == "End")
+
+# Sum biomass for each plot within treatments for Year 4 and "End" harvest
+summed_data_4_End <- Year4_End_data %>%
+  group_by(block, treatment) %>%
+  summarize(total_biomass = sum(biomass_g_log))
+
+# Create a data frame for the summed data for Year 4 and "End" harvest
+summed_table_4_End <- data.frame(
+  Block = summed_data_4_End$block,
+  Treatment = summed_data_4_End$treatment,
+  Total_Biomass_Log = summed_data_4_End$total_biomass
+)
+```
+
+```{r, message = FALSE}
+# Fit a linear mixed-effects model
+mixed_model_Year4_End <- lmerTest::lmer(Total_Biomass_Log ~ Treatment + (1 | Block), data = summed_table_4_End)
+
+# Display the summary of the model
+summary(mixed_model_Year4_End)
+
+anova(mixed_model_Year4_End, type = "I")
+```
+
+Year 5 - Mid
+
+```{r, message = FALSE}
+# Subset the data for Year 5 and "Mid" harvest
+Year5_Mid_data <- subset(log_filtered_data, Year == "Year 5" & harvest == "Mid")
+
+# Sum biomass for each plot within treatments for Year 5 and "Mid" harvest
+summed_data_5_Mid <- Year5_Mid_data %>%
+  group_by(block, treatment) %>%
+  summarize(total_biomass = sum(biomass_g_log))
+
+# Create a data frame for the summed data for Year 5 and "Mid" harvest
+summed_table_5_Mid <- data.frame(
+  Block = summed_data_5_Mid$block,
+  Treatment = summed_data_5_Mid$treatment,
+  Total_Biomass_Log = summed_data_5_Mid$total_biomass
+)
+```
+
+```{r, message = FALSE}
+# Fit a linear mixed-effects model
+mixed_model_Year5_Mid <- lmerTest::lmer(Total_Biomass_Log ~ Treatment + (1 | Block), data = summed_table_5_Mid)
+
+# Display the summary of the model
+summary(mixed_model_Year5_Mid)
+
+anova(mixed_model_Year5_Mid, type = "I")
+```
+
+
+Year 5 - End
+
+```{r, message = FALSE}
+# Subset the data for Year 5 and "End" harvest
+Year5_End_data <- subset(log_filtered_data, Year == "Year 5" & harvest == "End")
+
+# Sum biomass for each plot within treatments for Year 5 and "End" harvest
+summed_data_5_End <- Year5_End_data %>%
+  group_by(block, treatment) %>%
+  summarize(total_biomass = sum(biomass_g_log))
+
+# Create a data frame for the summed data for Year 5 and "End" harvest
+summed_table_5_End <- data.frame(
+  Block = summed_data_5_End$block,
+  Treatment = summed_data_5_End$treatment,
+  Total_Biomass_Log = summed_data_5_End$total_biomass
+)
+```
+
+```{r, message = FALSE}
+# Fit a linear mixed-effects model
+mixed_model_Year5_End <- lmerTest::lmer(Total_Biomass_Log ~ Treatment + (1 | Block), data = summed_table_5_End)
+
+# Display the summary of the model
+summary(mixed_model_Year5_End)
+
+anova(mixed_model_Year5_End, type = "I")
+```
+
+
+Year 6 - Mid
+
+```{r, message = FALSE}
+# Subset the data for Year 6 and "Mid" harvest
+Year6_Mid_data <- subset(log_filtered_data, Year == "Year 6" & harvest == "Mid")
+
+# Sum biomass for each plot within treatments for Year 6 and "Mid" harvest
+summed_data_6_Mid <- Year6_Mid_data %>%
+  group_by(block, treatment) %>%
+  summarize(total_biomass = sum(biomass_g_log))
+
+# Create a data frame for the summed data for Year 6 and "Mid" harvest
+summed_table_6_Mid <- data.frame(
+  Block = summed_data_6_Mid$block,
+  Treatment = summed_data_6_Mid$treatment,
+  Total_Biomass_Log = summed_data_6_Mid$total_biomass
+)
+```
+
+```{r, message = FALSE}
+# Fit a linear mixed-effects model
+mixed_model_Year6_Mid <- lmerTest::lmer(Total_Biomass_Log ~ Treatment + (1 | Block), data = summed_table_6_Mid)
+
+# Display the summary of the model
+summary(mixed_model_Year6_Mid)
+
+anova(mixed_model_Year6_Mid, type = "I")
+
+```
+
+Year 6 - End
+
+```{r, message = FALSE}
+# Subset the data for Year 6 and "End" harvest
+Year6_End_data <- subset(log_filtered_data, Year == "Year 6" & harvest == "End")
+
+# Sum biomass for each plot within treatments for Year 6 and "End" harvest
+summed_data_6_End <- Year6_End_data %>%
+  group_by(block, treatment) %>%
+  summarize(total_biomass = sum(biomass_g_log))
+
+# Create a data frame for the summed data for Year 6 and "End" harvest
+summed_table_6_End <- data.frame(
+  Block = summed_data_6_End$block,
+  Treatment = summed_data_6_End$treatment,
+  Total_Biomass_Log = summed_data_6_End$total_biomass
+)
+```
+
+```{r, message = FALSE}
+# Fit a linear mixed-effects model
+mixed_model_Year6_End <- lmerTest::lmer(Total_Biomass_Log ~ Treatment + (1 | Block), data = summed_table_6_End)
+
+# Display the summary of the model
+summary(mixed_model_Year6_End)
+
+anova(mixed_model_Year6_End, type = "I")
+```
+
+Year 7 - Mid
+
+```{r, message = FALSE}
+# Subset the data for Year 7 and "Mid" harvest
+Year7_Mid_data <- subset(log_filtered_data, Year == "Year 7" & harvest == "Mid")
+
+# Sum biomass for each plot within treatments for Year 7 and "Mid" harvest
+summed_data_7_Mid <- Year7_Mid_data %>%
+  group_by(block, treatment) %>%
+  summarize(total_biomass = sum(biomass_g_log))
+
+# Create a data frame for the summed data for Year 7 and "Mid" harvest
+summed_table_7_Mid <- data.frame(
+  Block = summed_data_7_Mid$block,
+  Treatment = summed_data_7_Mid$treatment,
+  Total_Biomass_Log = summed_data_7_Mid$total_biomass
+)
+```
+
+```{r, message = FALSE}
+# Fit a linear mixed-effects model
+mixed_model_Year7_Mid <- lmerTest::lmer(Total_Biomass_Log ~ Treatment + (1 | Block), data = summed_table_7_Mid)
+
+# Display the summary of the model
+summary(mixed_model_Year7_Mid)
+
+anova(mixed_model_Year7_Mid, type = "I")
+```
+
+
+Year 7 - End
+
+```{r, message = FALSE}
+# Subset the data for Year 7 and "End" harvest
+Year7_End_data <- subset(log_filtered_data, Year == "Year 7" & harvest == "End")
+
+# Sum biomass for each plot within treatments for Year 7 and "End" harvest
+summed_data_7_End <- Year7_End_data %>%
+  group_by(block, treatment) %>%
+  summarize(total_biomass = sum(biomass_g_log))
+
+# Create a data frame for the summed data for Year 7 and "End" harvest
+summed_table_7_End <- data.frame(
+  Block = summed_data_7_End$block,
+  Treatment = summed_data_7_End$treatment,
+  Total_Biomass_Log = summed_data_7_End$total_biomass
+)
+```
+
+```{r, message = FALSE}
+# Fit a linear mixed-effects model
+mixed_model_Year7_End <- lmerTest::lmer(Total_Biomass_Log ~ Treatment + (1 | Block), data = summed_table_7_End)
+
+# Display the summary of the model
+summary(mixed_model_Year7_End)
+
+anova(mixed_model_Year7_End, type = "I")
+```
+
+Year 8 - Mid
+
+```{r, message = FALSE}
+# Subset the data for Year 8 and "Mid" harvest
+Year8_Mid_data <- subset(log_filtered_data, Year == "Year 8" & harvest == "Mid")
+
+# Sum biomass for each plot within treatments for Year 8 and "Mid" harvest
+summed_data_8_Mid <- Year8_Mid_data %>%
+  group_by(block, treatment) %>%
+  summarize(total_biomass = sum(biomass_g_log))
+
+# Create a data frame for the summed data for Year 8 and "Mid" harvest
+summed_table_8_Mid <- data.frame(
+  Block = summed_data_8_Mid$block,
+  Treatment = summed_data_8_Mid$treatment,
+  Total_Biomass_Log = summed_data_8_Mid$total_biomass
+)
+```
+
+```{r, message = FALSE}
+# Fit a linear mixed-effects model
+mixed_model_Year8_Mid <- lmerTest::lmer(Total_Biomass_Log ~ Treatment + (1 | Block), data = summed_table_8_Mid)
+
+# Display the summary of the model
+summary(mixed_model_Year8_Mid)
+
+anova(mixed_model_Year8_Mid, type = "I")
+
+```
+
+Year 8 - End
+
+```{r, message = FALSE}
+# Subset the data for Year 8 and "Mid" harvest
+Year8_End_data <- subset(log_filtered_data, Year == "Year 8" & harvest == "End")
+
+Year8_End_data
+
+summed_data_8_End <- Year8_End_data %>%
+  group_by(block, treatment) %>%
+  summarize(total_biomass = sum(biomass_g_log))
+
+
+summed_table_8_End <- data.frame(
+  Block = summed_data_8_End$block,
+  Treatment = summed_data_8_End$treatment,
+  Total_Biomass_Log = summed_data_8_End$total_biomass
+)
+
+```
+
+```{r, message = FALSE}
+# Fit a linear mixed-effects model
+mixed_model_Year8_End <- lmerTest::lmer(Total_Biomass_Log ~ Treatment + (1 |Block), data = summed_table_8_End)
+
+# Display the summary of the model
+summary(mixed_model_Year8_End)
+
+anova(mixed_model_Year8_End, type = "I")
+```
+
+
+#### Step 5: Temporal Analysis (Treatment, Block) 
+
+(Subsetting for 2 - 8th Year as explained in introduction due to inconsistency)
+
+*lmer(Log_Biomass ~ Treatment + (1|Block))*
+
+
+```{r, message = FALSE}
+# Data for "Year 2" to "Year 8"
+filtered_data_years <- log_filtered_data %>%
+  filter(Year %in% paste0("Year ", 2:8))
+
+# Sum biomass for each plot within treatments for "Year 2" to "Year 8"
+summed_table_1 <- filtered_data_years %>%
+  group_by(Year, block, treatment) %>%
+  summarize(total_biomass = sum(biomass_g_log))
+
+simple_analysis_table <- data.frame(
+  Year = summed_table_1$Year,
+  Block = summed_table_1$block,
+  Treatment = summed_table_1$treatment,
+  Total_Biomass_Log = summed_table_1$total_biomass
+)
+
+tibble(simple_analysis_table)
+```
+
+```{r, message = FALSE}
+# Run lmerTest with block as random effect 
+Simple_Whole_Dataset_Biomass_Analysis <- 
+  lmerTest::lmer(Total_Biomass_Log ~ Treatment + (1|Block), data = simple_analysis_table)
+```
+
+```{r}
+# Generate an ANOVA table with the *P*-value (specifying the classical sequential 'type I' sums of squares rather than the controversial 'type III'):
+anova(Simple_Whole_Dataset_Biomass_Analysis, type = "I")
+```
+#### Step 6: Temporal Analysis (Treatment, Year, Harvest, Block, Plot) 
+
+*lmer( Log_Biomass ~ Treatment + Year + Harvest + (1|Block) + (1|Plot))*
+
+Whereby Year is a factor of 7, Harvest of 2, Block of 5 and Plot of 20
+
+Make new table, including harvest:
+
+```{r, message = FALSE}
+# Sum biomass for each plot within treatments for "Year 2" to "Year 8", including harvest this time
+summed_table_2 <- filtered_data_years %>%
+  group_by(Year, block, treatment, harvest) %>%
+  summarize(total_biomass = sum(biomass_g_log))
+
+extended_analysis_table <- data.frame(
+  Year = as.factor(summed_table_2$Year),  # Convert "Year" to a factor
+  Block = as.factor(summed_table_2$block),  # Convert "Block" to a factor
+  Treatment = summed_table_2$treatment,
+  Harvest = factor(summed_table_2$harvest, levels = c("Mid", "End")), 
+  Total_Biomass_Log = summed_table_2$total_biomass
+)
+tibble(extended_analysis_table)
+```
+
+Making Plot a factor of 20 in the table:
+
+```{r}
+# Add Plot variable to the dataset, considering both "Mid" and "End" harvests
+extended_analysis_table <- extended_analysis_table %>%
+  group_by(Year, Harvest) %>%
+  mutate(Plot = row_number())
+
+# Make "Plot" to a factor
+extended_analysis_table$Plot <- as.factor(extended_analysis_table$Plot)
+
+# Check the class of the "Plot" variable
+class(extended_analysis_table$Plot)
+```
+
+```{r, warning = FALSE}
+# Print the updated table
+tibble(extended_analysis_table)
+
+# How many levels in each factor to double-check before proceeding with analysis?
+str(extended_analysis_table)
+
+# Save the table as spreadsheet
+write.xlsx(extended_analysis_table, "extended_analysis_table.xlsx", row.names = FALSE)
+```
+
+```{r, message = FALSE}
+Extended_Whole_Datatset_Biomass_Analysis <- 
+  lmerTest::lmer(Total_Biomass_Log ~ Treatment + Year + Harvest + (1|Block) + (1|Plot), data = extended_analysis_table)
+
+anova(Extended_Whole_Datatset_Biomass_Analysis, type = "I")
+```
