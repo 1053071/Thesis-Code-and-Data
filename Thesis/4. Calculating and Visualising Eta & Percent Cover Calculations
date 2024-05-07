@@ -1,0 +1,294 @@
+```{r, include=FALSE}
+library(stats)
+library(tidyverse)
+library(lme4)
+library(lmerTest)
+library(dplyr)
+library(viridis)
+library(ggplot2)
+library(codyn)
+```
+
+```{r, include=FALSE}
+setwd("  set as own directory  ")
+percent_cover_data<- read.csv("percentcover.csv")
+str(percent_cover_data)
+```
+
+```{r}
+# Check the combinations, to see if there are unexpected duplicates due to formatting (spaces in the excel cell)
+unique_combinations <- unique(select(percent_cover_data, treatment, group))
+print(unique_combinations) 
+```
+
+It seems we have two of Procedural-Woody for example. There are likely trailing spaces in some of the treatment values, which we can clean up with the following 
+
+```{r}
+# Remove spaces at ends of words in cells 
+percent_cover_data <- percent_cover_data %>%
+  mutate_all(str_trim)
+```
+
+```{r, message = FALSE}
+# Filter for our three groups and remove Year 1, as per reasoning provided in Markdown 2
+percent_cover_data$Year <- as.numeric(percent_cover_data$Year)
+selected_groups <- c("Forbs", "Grass", "Legumes")
+filtered_data <- percent_cover_data %>%
+  filter(group %in% selected_groups, between(Year, 2, 8))
+str(filtered_data)
+```
+
+
+#### Synchrony per Plot 
+
+```{r}
+filtered_data$percentcover <- as.numeric(filtered_data$percentcover)
+
+#Plot by combining block and treatment
+filtered_data$Plot <- paste(filtered_data$block, filtered_data$treatment, sep = "_")
+synchrony_results <- data.frame(Plot = character(), Treatment = character(), Block = character(), Synchrony = numeric())
+
+#Loop through each plot
+unique_plots <- unique(filtered_data$Plot)
+for (plot in unique_plots) {
+  plot_data <- filtered_data %>%
+    filter(Plot == plot)
+
+  synchrony_plot <- synchrony(
+    df = plot_data,
+    time.var = "Year",
+    species.var = "species",
+    abundance.var = "percentcover",
+    metric = "Gross",
+    replicate.var = "Plot"
+  )
+  synchrony_results <- bind_rows(synchrony_results, mutate(synchrony_plot, Plot = plot))
+}
+plot_synchrony_results <- synchrony_results %>%
+  separate(Plot, into = c("Block", "Treatment"), sep = "_", remove = FALSE)
+
+# Remove the empty Synchrony column and rename synchrony to Synchrony
+plot_synchrony_results <- plot_synchrony_results %>%
+  select(-Synchrony) %>%
+  rename(Synchrony = synchrony)
+
+print(plot_synchrony_results)
+```
+
+```{r}
+plot_synchrony_lmer <- lmer(Synchrony ~ Treatment + (1|Block) , data = plot_synchrony_results)
+summary(plot_synchrony_lmer)
+```
+
+```{r}
+# Calculate mean and standard error per treatment 
+summary_data <- plot_synchrony_results %>%
+  group_by(Treatment) %>%
+  summarize(mean_synchrony = mean(Synchrony),
+            se_synchrony = sd(Synchrony) / sqrt(n()))
+
+
+plot_eta <- ggplot(summary_data, aes(x = Treatment, y = mean_synchrony, fill = Treatment)) +
+  geom_bar(stat = "identity", position = "dodge", color = "black") +
+  geom_errorbar(aes(ymin = mean_synchrony - se_synchrony, ymax = mean_synchrony + se_synchrony),
+                position = position_dodge(width = 0.9), width = 0.25, color = "black") +
+  labs(title = "Mean Synchrony per Treatment",
+       x = "Treatment",
+       y = "Mean Synchrony") +
+  scale_fill_viridis(discrete = TRUE) +
+  theme_minimal() +
+  scale_y_reverse() +
+  theme(text = element_text(size = 14),    
+        axis.text = element_text(size = 14),   
+        legend.title = element_text(size = 14), 
+        legend.text = element_text(size = 14),   
+       )  
+
+print(plot_eta)
+```
+
+
+```{r, include = FALSE}
+ggsave(filename = "mean_eta_per_treatment.png", 
+       plot = plot_eta, 
+       width = 10, 
+       height = 6, 
+       units = "in", 
+       dpi = 300, 
+       bg = "white")
+```
+
+```{r}
+# Calculate mean eta per treatment 
+mean_eta <- plot_synchrony_results %>%
+  group_by(Treatment) %>%
+  summarize(mean_eta = mean(Synchrony))
+
+# Print the table of mean eta per treatment
+print(mean_eta)
+```
+
+#### Percent Cover of Ten Species with most percent cover
+
+```{r, message = FALSE}
+# Which species have topmost percent cover?
+top_species <- filtered_data %>%
+  group_by(species) %>%
+  summarize(TotalPercentCover = sum(percentcover, na.rm = TRUE)) %>%
+  top_n(10, TotalPercentCover)
+
+# Select top 10
+selected_species_data <- filtered_data %>%
+  filter(species %in% top_species$species)
+
+# Make table
+percent_cover_table <- selected_species_data %>%
+  group_by(species, group, Year) %>%
+  summarize(MeanPercentCover = mean(percentcover, na.rm = TRUE))
+
+# Plot over time with different shapes for groups
+percent_cover_plot <- ggplot(percent_cover_table, aes(x = Year, y = MeanPercentCover, color = species, shape = group)) +
+  geom_line() +
+  geom_point() +
+  labs(x = "Year",
+       y = "Mean Percent Cover") +
+  theme_bw() +
+  theme(legend.position = "right",
+        plot.background = element_rect(fill = "white"),
+        panel.background = element_rect(fill = "white"),
+        text = element_text(size = 14)) +
+  scale_color_viridis_d()
+```
+
+```{r, include=FALSE}
+ggsave(filename = "percent_cover.png", 
+       plot = percent_cover_plot, 
+       width = 10, 
+       height = 6, 
+       units = "in", 
+       dpi = 300, 
+       bg = "white")
+```
+
+```{r, message = FALSE}
+# Create a table of percent cover for the top ten species, per treatment
+percent_cover_treatment_table <- selected_species_data %>%
+  group_by(treatment, species, group, Year) %>%
+  summarize(MeanPercentCover = mean(percentcover, na.rm = TRUE))
+
+# Plot mean percent cover over time, per treatment, with grid lines and no border
+treatment_plot <- ggplot(percent_cover_treatment_table, aes(x = Year, y = MeanPercentCover, color = species, shape = group)) +
+  geom_line() +
+  geom_point() +
+  labs(x = "Year",
+       y = "Mean Percent Cover") +
+  theme_minimal() +
+  theme(legend.position = "right",
+        panel.border = element_blank(), 
+        strip.text = element_text(size = 12, face = "bold"),  
+        strip.background = element_rect(fill = "lightgray", color = "black", size = 0.5, linetype = "solid")) +  
+  scale_color_viridis_d() +
+  facet_wrap(~treatment, scales = "free_y", labeller = label_parsed)
+
+print(treatment_plot)
+```
+
+```{r, include = FALSE}
+ggsave(filename = "treatment_plot.png", 
+       plot = treatment_plot, 
+       width = 10, 
+       height = 6, 
+       units = "in", 
+       dpi = 300, 
+       bg = "white")
+
+```
+
+
+#### Treatment effect on percent cover of functional group
+
+```{r}
+total_percent_cover_per_group_year <- percent_cover_treatment_table %>%
+  group_by(treatment, group, Year) %>%
+  summarize(TotalPercentCover = sum(MeanPercentCover))
+
+group_percent_cover_plot <- ggplot(total_percent_cover_per_group_year, aes(x = Year, y = TotalPercentCover, color = group)) +
+  geom_line() +
+  geom_point() +
+  labs(
+       x = "Year",
+       y = "Total Percent Cover") +
+  theme_minimal() +
+  theme(legend.position = "right",
+        panel.border = element_blank(),  
+        strip.text = element_text(size = 12, face = "bold"),
+        strip.background = element_rect(fill = "lightgray", color = "black", size = 0.5, linetype = "solid"),
+        plot.background = element_rect(fill = "white"),  
+        text = element_text(size = 14)) +  
+  scale_color_viridis_d() +  
+  facet_wrap(~ treatment, scales = "free_y")
+print(group_percent_cover_plot)
+
+```
+
+```{r, include = FALSE}
+ggsave(filename = "group_percent_cover_plot.png", 
+       plot = group_percent_cover_plot, 
+       width = 10, 
+       height = 6, 
+       units = "in", 
+       dpi = 300, 
+       bg = "white")
+```
+
+
+#### Percent cover change for functional groups
+
+```{r}
+data_subset <- total_percent_cover_per_group_year %>%
+  filter(Year %in% c(2, 8))
+
+mean_percent_cover <- data_subset %>%
+  group_by(treatment, group) %>%
+  summarize(mean_percent_cover_2 = TotalPercentCover[Year == 2],
+            mean_percent_cover_8 = TotalPercentCover[Year == 8])
+
+
+percent_cover_change <- mean_percent_cover %>%
+  mutate(percent_cover_change = ((mean_percent_cover_8 - mean_percent_cover_2) / mean_percent_cover_2) * 100)
+
+view(percent_cover_change)
+write.csv(percent_cover_change, "percent_cover_change_table.csv", row.names = FALSE)
+
+
+
+percent_cover_change_plot <- ggplot(percent_cover_change, aes(x = treatment, y = percent_cover_change, fill = group)) +
+  geom_bar(stat = "identity", position = "dodge", color = "black") + 
+  labs(
+    x = "Treatment",
+    y = "Percent Cover Change (%)",
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "right",
+    text = element_text(size = 14)
+  ) +
+  scale_fill_viridis_d()
+
+print(percent_cover_change_plot)
+```
+
+```{r, include = FALSE}
+ggsave(
+  filename = "percent_cover_change_plot.png",
+  plot = percent_cover_change_plot,
+  width = 10,
+  height = 6,
+  units = "in",
+  dpi = 300,
+  bg = "white"
+)
+```
+
+
+
