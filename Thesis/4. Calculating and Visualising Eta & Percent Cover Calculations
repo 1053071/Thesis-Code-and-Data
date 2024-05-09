@@ -7,6 +7,7 @@ library(dplyr)
 library(viridis)
 library(ggplot2)
 library(codyn)
+library(stringr)
 ```
 
 ```{r, include=FALSE}
@@ -176,18 +177,20 @@ percent_cover_treatment_table <- selected_species_data %>%
   group_by(treatment, species, group, Year) %>%
   summarize(MeanPercentCover = mean(percentcover, na.rm = TRUE))
 
-# Plot mean percent cover over time, per treatment, with grid lines and no border
 treatment_plot <- ggplot(percent_cover_treatment_table, aes(x = Year, y = MeanPercentCover, color = species, shape = group)) +
   geom_line() +
   geom_point() +
   labs(x = "Year",
-       y = "Mean Percent Cover") +
+       y = "Mean Percent Cover",
+       color = str_to_title("Species"),  
+       shape = str_to_title("Group")) +  
   theme_minimal() +
   theme(legend.position = "right",
         panel.border = element_blank(), 
         strip.text = element_text(size = 12, face = "bold"),  
-        strip.background = element_rect(fill = "lightgray", color = "black", size = 0.5, linetype = "solid")) +  
-  scale_color_viridis_d() +
+        strip.background = element_rect(fill = "lightgray", color = "black", size = 0.5, linetype = "solid"),
+        legend.text = element_text(size = 10)) +  
+  scale_color_viridis_d(labels = function(x) str_replace_all(x, "_", " ")) +
   facet_wrap(~treatment, scales = "free_y", labeller = label_parsed)
 
 print(treatment_plot)
